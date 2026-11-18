@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" class="has-openchat">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -881,8 +881,21 @@ body{
   .footer-sns a{ font-size:11.5px; color:rgba(255,255,255,0.85); border:1px solid rgba(255,255,255,0.35); padding:7px 14px; border-radius:999px; font-weight:600; }
   .footer-sns a:hover{ color:#fff; border-color:#fff; }
 
+  /* 오픈카톡: 링크가 설정됐을 때만 보임 */
+  html:not(.has-openchat) [data-openchat]{ display:none !important; }
+  .btn-kakao{ background:#FEE500; color:#191919; border-color:#FEE500; }
+  .btn-kakao:hover{ background:#f5dc00; border-color:#f5dc00; }
+  .btn-kakao svg{ width:17px; height:17px; margin-right:6px; vertical-align:-3px; }
+  .floating-stack{ position:fixed; right:26px; bottom:26px; z-index:400; display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
+  .floating-kakao{
+    display:flex; align-items:center; gap:10px;
+    background:#FEE500; color:#191919; border-radius:999px;
+    padding:14px 20px 14px 16px; box-shadow:0 14px 30px -10px rgba(16,21,43,0.35);
+    font-weight:800; font-size:14px; transition:transform .2s ease;
+  }
+  .floating-kakao svg{ width:20px; height:20px; }
+  .floating-kakao:hover{ transform:translateY(-3px); }
   .floating-call{
-    position:fixed; right:26px; bottom:26px; z-index:400;
     display:flex; align-items:center; gap:10px;
     background:var(--blue); color:#fff; border-radius:999px;
     padding:14px 20px 14px 16px; box-shadow:0 14px 30px -10px rgba(16,21,43,0.35);
@@ -894,6 +907,7 @@ body{
   @media (max-width:900px){
     nav.links{ display:none; }
     .nav-cta .btn-outline{ display:none; }
+    .nav-cta .btn-kakao{ display:none; }
     .hamburger{ display:flex; }
     .stat-row{ gap:56px; }
   }
@@ -977,6 +991,8 @@ body{
 
     /* 관리자에서 아직 저장하기 전 기본값 */
     window.SITE_DEFAULTS = {
+      openChatUrl: 'https://pf.kakao.com/_bxcAvX/chat',
+      kakaoLabel: '카카오톡 상담',
       showIssues: true,
       showKnowledge: true,
       services: [
@@ -1048,6 +1064,18 @@ body{
       if(p.showKnowledge === false) hidden.push('knowledge');
       if(Array.isArray(p.links) && p.links.length === 0) hidden.push('reference');
       applyVisibility(hidden);
+      // 오픈카톡 링크
+      // 카카오톡 상담 버튼: 관리자가 직접 저장한 적이 없으면(kakaoLinkSet) 기본 링크/문구 사용
+      {
+        const D = window.SITE_DEFAULTS;
+        const custom = p.kakaoLinkSet === true;
+        const raw = custom ? (p.openChatUrl || '') : D.openChatUrl;
+        const label = (custom && p.kakaoLabel) ? p.kakaoLabel : D.kakaoLabel;
+        const oc = raw ? safeUrl(raw) : '';
+        document.documentElement.classList.toggle('has-openchat', !!oc && oc !== '#');
+        if(oc && oc !== '#') document.querySelectorAll('[data-openchat]').forEach(a => a.setAttribute('href', oc));
+        document.querySelectorAll('[data-kakao-label]').forEach(s => { s.textContent = label; });
+      }
       renderServices(p.services);
       renderLinks(p.links);
       const set = (key, val) => { if(val === undefined || val === null) return; document.querySelectorAll(`[data-p="${key}"]`).forEach(el => { el.textContent = val; }); };
@@ -1101,6 +1129,7 @@ body{
       <a href="#contact">상담문의</a>
     </nav>
     <div class="nav-cta">
+      <a href="https://pf.kakao.com/_bxcAvX/chat" data-openchat target="_blank" rel="noopener" class="btn btn-kakao btn-sm"><span data-kakao-label>카카오톡 상담</span></a>
       <a href="tel:01030558109" data-p-tel class="btn btn-outline btn-sm">전화상담</a>
       <button type="button" class="hamburger" id="hamburgerBtn" aria-label="메뉴 열기"><span></span></button>
     </div>
@@ -1124,6 +1153,7 @@ body{
     <a href="#contact">상담문의</a>
   </nav>
   <div class="mobile-menu-actions">
+    <a href="https://pf.kakao.com/_bxcAvX/chat" data-openchat target="_blank" rel="noopener" class="btn btn-kakao"><span data-kakao-label>카카오톡 상담</span></a>
     <a href="tel:01030558109" data-p-tel class="btn btn-outline">전화상담</a>
   </div>
 </div>
@@ -1147,6 +1177,7 @@ body{
       <h1>보험,<br>그 <span class="accent">이상</span>을 하다.</h1>
       <p class="hero-sub">AZ금융서비스 <span data-p="name">심온</span> <span data-p="title">고객관리 팀장</span>입니다. 팩트에 기반한 비교설계와 체계적인 사후관리로 고객님의 평생 보험 파트너가 되겠습니다.</p>
       <div class="hero-cta">
+        <a href="https://pf.kakao.com/_bxcAvX/chat" data-openchat target="_blank" rel="noopener" class="btn btn-kakao"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3C6.48 3 2 6.58 2 11c0 2.85 1.86 5.35 4.66 6.77l-.95 3.48c-.08.3.26.54.52.37l4.13-2.74c.54.07 1.08.12 1.64.12 5.52 0 10-3.58 10-8s-4.48-8-10-8z"/></svg><span data-kakao-label>카카오톡 상담</span></a>
         <a href="tel:01030558109" data-p-tel class="btn btn-outline">전화 상담하기</a>
         <a href="#service" class="btn btn-ghost">자세히 보기</a>
       </div>
@@ -1782,8 +1813,9 @@ body{
   <div class="wrap reveal">
     <span class="eyebrow">Contact</span>
     <h2>지금, 10분이면 충분합니다</h2>
-    <p>무료 보장 분석부터 맞춤 설계까지 — 전화로 편하게 문의해 주세요.</p>
+    <p>무료 보장 분석부터 맞춤 설계까지 — 편하신 방법으로 문의해 주세요.</p>
     <div class="cta-actions">
+      <a href="https://pf.kakao.com/_bxcAvX/chat" data-openchat target="_blank" rel="noopener" class="btn btn-kakao"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3C6.48 3 2 6.58 2 11c0 2.85 1.86 5.35 4.66 6.77l-.95 3.48c-.08.3.26.54.52.37l4.13-2.74c.54.07 1.08.12 1.64.12 5.52 0 10-3.58 10-8s-4.48-8-10-8z"/></svg><span data-kakao-label>카카오톡 상담</span></a>
       <a href="tel:01030558109" data-p-tel class="btn btn-blue"><span data-p="phone">010-3055-8109</span> 전화하기</a>
     </div>
   </div>
@@ -1813,10 +1845,16 @@ body{
 </footer>
 <script>if(window.SITE_PROFILE_CACHED) applySiteProfile(SITE_PROFILE_CACHED);</script>
 
+<div class="floating-stack">
+<a href="https://pf.kakao.com/_bxcAvX/chat" data-openchat target="_blank" rel="noopener" class="floating-kakao">
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3C6.48 3 2 6.58 2 11c0 2.85 1.86 5.35 4.66 6.77l-.95 3.48c-.08.3.26.54.52.37l4.13-2.74c.54.07 1.08.12 1.64.12 5.52 0 10-3.58 10-8s-4.48-8-10-8z"/></svg>
+  카카오톡
+</a>
 <a href="tel:01030558109" data-p-tel id="floatingCallBtn" class="floating-call">
   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z"/></svg>
   전화 상담
 </a>
+</div>
 
 <div class="privacy-overlay" id="privacyOverlay">
   <div class="privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle">
@@ -4512,6 +4550,15 @@ body{
           </div>
         </div>
         <label class="form-check"><input type="checkbox" id="pfAutoIncrement"> 방문자 1명당 하루 1번씩 상담 건수 자동 증가</label>
+        <div class="form-row">
+          <label for="pfOpenChat">카카오톡 링크 (채널 또는 오픈채팅 · 비우면 카카오 버튼이 모두 숨겨져요)</label>
+          <input type="text" id="pfOpenChat" placeholder="https://pf.kakao.com/_bxcAvX/chat">
+          <p class="form-hint">채널 추가: pf.kakao.com/_채널ID/friend · 채널 1:1 채팅: pf.kakao.com/_채널ID/chat · 오픈채팅: open.kakao.com/o/...</p>
+        </div>
+        <div class="form-row">
+          <label for="pfKakaoLabel">카카오 버튼 문구</label>
+          <input type="text" id="pfKakaoLabel" maxlength="20" placeholder="카카오톡 채널 추가">
+        </div>
 
         <div class="form-row">
           <label>프로필 사진 (메인 화면)</label>
@@ -4590,7 +4637,9 @@ body{
     showIssues: window.SITE_DEFAULTS.showIssues,
     showKnowledge: window.SITE_DEFAULTS.showKnowledge,
     services: window.SITE_DEFAULTS.services.map(s => ({ ...s })),
-    links: window.SITE_DEFAULTS.links.map(l => ({ ...l }))
+    links: window.SITE_DEFAULTS.links.map(l => ({ ...l })),
+    openChatUrl: window.SITE_DEFAULTS.openChatUrl,
+    kakaoLabel: window.SITE_DEFAULTS.kakaoLabel
   };
 
   let profile = { ...DEFAULT_PROFILE };
@@ -4687,6 +4736,9 @@ body{
     f.career.value = profile.careerYears ?? '';
     f.consult.value = profile.consultCount ?? '';
     f.auto.checked = !!profile.autoIncrement;
+    const kakaoCustom = profile.kakaoLinkSet === true;
+    document.getElementById('pfOpenChat').value = kakaoCustom ? (profile.openChatUrl || '') : window.SITE_DEFAULTS.openChatUrl;
+    document.getElementById('pfKakaoLabel').value = (kakaoCustom && profile.kakaoLabel) ? profile.kakaoLabel : window.SITE_DEFAULTS.kakaoLabel;
     document.getElementById('pfShowIssues').checked = profile.showIssues !== false;
     document.getElementById('pfShowKnowledge').checked = profile.showKnowledge !== false;
     renderServiceEditors(Array.isArray(profile.services) ? profile.services : window.SITE_DEFAULTS.services);
@@ -4898,6 +4950,9 @@ body{
         careerYears: career,
         consultCount: consult,
         autoIncrement: f.auto.checked,
+        kakaoLinkSet: true,
+        kakaoLabel: document.getElementById('pfKakaoLabel').value.trim() || window.SITE_DEFAULTS.kakaoLabel,
+        openChatUrl: (() => { const v = document.getElementById('pfOpenChat').value.trim(); return v ? window.siteSafeUrl(v) : ''; })(),
         showIssues: document.getElementById('pfShowIssues').checked,
         showKnowledge: document.getElementById('pfShowKnowledge').checked,
         services: readServiceEditors(),
