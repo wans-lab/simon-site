@@ -18,6 +18,11 @@
 <meta name="twitter:description" content="보험, 그 이상을 하다. 팩트에 기반한 비교설계와 체계적인 사후관리로 고객님의 평생 보험 파트너가 되겠습니다.">
 <meta name="twitter:image" content="https://lh3.googleusercontent.com/d/1RjZZ_c1YJuw0iPB0lNB_T-7uP0tjFH8z">
 
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://firebasestorage.googleapis.com">
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
@@ -276,7 +281,7 @@ body{
   .hero-photo{ background:rgba(255,255,255,0.08); }
   .hero-photo img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
   /* 프로필 이미지: 실제 사진이 로드되기 전에는 숨김 (예전 사진이 잠깐 보이는 문제 방지) */
-  img[data-p-src]{ opacity:0; transition:opacity .35s ease; }
+  img[data-p-src]{ opacity:0; transition:opacity .2s ease; }
   img[data-p-src].loaded{ opacity:1; }
   img[data-p-src]:not([src]){ visibility:hidden; }
   .hero-photo-badge{
@@ -931,6 +936,12 @@ body{
     let cached = null;
     try{ cached = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){}
     window.SITE_PROFILE_CACHED = cached;
+    if(cached && cached.photoURL){
+      const link = document.createElement('link');
+      link.rel = 'preload'; link.as = 'image'; link.href = cached.photoURL;
+      link.setAttribute('fetchpriority', 'high');
+      document.head.appendChild(link);
+    }
     window.saveSiteProfileCache = function(p){
       try{ localStorage.setItem(KEY, JSON.stringify(p)); } catch(e){}
     };
@@ -1057,7 +1068,7 @@ body{
       </div>
     </div>
     <div class="hero-photo reveal">
-      <img data-p-src="photo" alt="프로필 사진" data-default-src="https://lh3.googleusercontent.com/d/1YcB2LJi0nq0shr_CX8fwqxQkDEPgs5e9">
+      <img data-p-src="photo" alt="프로필 사진" fetchpriority="high" decoding="async" data-default-src="https://lh3.googleusercontent.com/d/1YcB2LJi0nq0shr_CX8fwqxQkDEPgs5e9">
       <div class="hero-photo-badge"><b><span data-p="career">9</span>년+</b><span>보험 컨설팅<br>경력</span></div>
     </div>
   </div>
@@ -4497,6 +4508,10 @@ body{
       }
     }
 
+    // 받자마자 먼저 화면에 반영 (사진 다운로드를 바로 시작)
+    applyProfile(profile);
+
+    // 상담 건수 +1은 화면 표시와 별개로 뒤에서 처리
     if(profileExists && profile.autoIncrement){
       const today = new Date().toISOString().slice(0,10);
       const key = 'simonConsultCountedDate';
@@ -4507,12 +4522,12 @@ body{
           await updateDoc(profileRef, { consultCount: increment(1) });
           profile.consultCount = Number(profile.consultCount) + 1;
           try{ localStorage.setItem(key, today); } catch(e){}
+          applyProfile(profile);
         } catch(err){
           console.error('상담 건수 자동 증가 실패 (Firestore 규칙 확인)', err);
         }
       }
     }
-    applyProfile(profile);
   }
   loadProfile();
 
@@ -4624,9 +4639,40 @@ body{
   bindImagePicker('logo', 'pfLogoInput', 'pfLogoDrop');
 
   function extOf(file){ const parts = file.name.split('.'); return parts.length > 1 ? parts.pop() : 'jpg'; }
+  /* 큰 사진(휴대폰 원본 등)을 업로드 전에 자동으로 줄임 — 긴 변 maxSide px 이하, JPEG(로고가 PNG면 투명도 유지 위해 PNG) */
+  function resizeImage(file, maxSide){
+    return new Promise((resolve) => {
+      if(!file.type.startsWith('image/') || file.type === 'image/svg+xml' || file.type === 'image/gif'){ resolve(file); return; }
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        const keepPng = file.type === 'image/png';
+        if(!keepPng){ ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); }
+        ctx.drawImage(img, 0, 0, w, h);
+        const type = keepPng ? 'image/png' : 'image/jpeg';
+        canvas.toBlob((blob) => {
+          if(!blob || (scale === 1 && blob.size >= file.size)){ resolve(file); return; } // 줄일 필요 없으면 원본 사용
+          const ext = keepPng ? 'png' : 'jpg';
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, '') + '.' + ext, { type }));
+        }, type, 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
   function upload(path, file){
     return new Promise((resolve, reject) => {
-      const task = uploadBytesResumable(ref(storage, path), file);
+      const task = uploadBytesResumable(ref(storage, path), file, {
+        contentType: file.type,
+        cacheControl: 'public, max-age=31536000, immutable'
+      });
       progress.style.display = 'block';
       task.on('state_changed', (s) => {
         progressBar.style.width = Math.round((s.bytesTransferred / s.totalBytes) * 100) + '%';
@@ -4656,12 +4702,14 @@ body{
         autoIncrement: f.auto.checked
       };
       if(photoFile){
+        photoFile = await resizeImage(photoFile, 1400);
         const path = `${SP}/siteProfiles/${PROFILE_ID}/photo-${Date.now()}.${extOf(photoFile)}`;
         next.photoURL = await upload(path, photoFile);
         if(profile.photoPath) deleteObject(ref(storage, profile.photoPath)).catch(() => {});
         next.photoPath = path;
       }
       if(logoFile){
+        logoFile = await resizeImage(logoFile, 800);
         const path = `${SP}/siteProfiles/${PROFILE_ID}/footer-logo-${Date.now()}.${extOf(logoFile)}`;
         next.footerLogoURL = await upload(path, logoFile);
         if(profile.footerLogoPath) deleteObject(ref(storage, profile.footerLogoPath)).catch(() => {});
