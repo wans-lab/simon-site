@@ -273,7 +273,12 @@ body{
     position:relative; border-radius:28px; overflow:hidden; aspect-ratio:4/5;
     box-shadow:0 30px 70px -30px rgba(0,0,0,0.4);
   }
+  .hero-photo{ background:rgba(255,255,255,0.08); }
   .hero-photo img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+  /* 프로필 이미지: 실제 사진이 로드되기 전에는 숨김 (예전 사진이 잠깐 보이는 문제 방지) */
+  img[data-p-src]{ opacity:0; transition:opacity .35s ease; }
+  img[data-p-src].loaded{ opacity:1; }
+  img[data-p-src]:not([src]){ visibility:hidden; }
   .hero-photo-badge{
     position:absolute; left:20px; bottom:20px; background:#fff; border-radius:16px;
     padding:14px 18px; box-shadow:0 14px 30px -12px rgba(16,21,43,0.3);
@@ -919,6 +924,58 @@ body{
     databaseId: "simon-blog",
     storagePrefix: "simon"
   };
+
+  /* ---- 프로필 화면 반영 (마지막으로 받은 프로필을 브라우저에 저장해두고, 다음 방문 때 즉시 표시) ---- */
+  (function(){
+    const KEY = 'simonProfileCache_v1';
+    let cached = null;
+    try{ cached = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){}
+    window.SITE_PROFILE_CACHED = cached;
+    window.saveSiteProfileCache = function(p){
+      try{ localStorage.setItem(KEY, JSON.stringify(p)); } catch(e){}
+    };
+
+    function setImg(img, url){
+      if(!url) return;
+      if(img.getAttribute('src') !== url){
+        img.classList.remove('loaded');
+        img.addEventListener('load', () => img.classList.add('loaded'), { once:true });
+        img.addEventListener('error', () => img.classList.add('loaded'), { once:true });
+        img.src = url;
+      }
+      if(img.complete && img.naturalWidth) img.classList.add('loaded');
+    }
+
+    window.applySiteProfile = function(p){
+      if(!p) return;
+      const set = (key, val) => { if(val === undefined || val === null) return; document.querySelectorAll(`[data-p="${key}"]`).forEach(el => { el.textContent = val; }); };
+      set('name', p.name);
+      set('title', p.title);
+      set('phone', p.phone);
+      set('email', p.email || '');
+      set('career', p.careerYears);
+      document.querySelectorAll('[data-p-show="email"]').forEach(el => { el.style.display = p.email ? '' : 'none'; });
+      if(p.phone){
+        const tel = String(p.phone).replace(/[^0-9+]/g, '');
+        document.querySelectorAll('[data-p-tel]').forEach(a => a.setAttribute('href', 'tel:' + tel));
+      }
+      document.querySelectorAll('[data-p-src="photo"]').forEach(img => setImg(img, p.photoURL));
+      document.querySelectorAll('[data-p-src="footerLogo"]').forEach(img => setImg(img, p.footerLogoURL));
+      const career = document.getElementById('statsCareer');
+      if(career && p.careerYears !== undefined){
+        career.dataset.countup = String(p.careerYears);
+        if(career.dataset.done) career.textContent = String(p.careerYears);
+      }
+      if(p.name && p.title) document.title = `AZ금융서비스 ${p.name} ${p.title} | 보험 컨설팅`;
+    };
+
+    // 서버 응답이 너무 늦거나 실패할 때만 기본 이미지 사용
+    window.useDefaultProfileImages = function(){
+      document.querySelectorAll('img[data-p-src]').forEach(img => {
+        if(!img.getAttribute('src') && img.dataset.defaultSrc) setImg(img, img.dataset.defaultSrc);
+      });
+    };
+  })();
 </script>
 </head>
 <body>
@@ -1000,7 +1057,7 @@ body{
       </div>
     </div>
     <div class="hero-photo reveal">
-      <img data-p-src="photo" alt="프로필 사진" src="https://lh3.googleusercontent.com/d/1YcB2LJi0nq0shr_CX8fwqxQkDEPgs5e9">
+      <img data-p-src="photo" alt="프로필 사진" data-default-src="https://lh3.googleusercontent.com/d/1YcB2LJi0nq0shr_CX8fwqxQkDEPgs5e9">
       <div class="hero-photo-badge"><b><span data-p="career">9</span>년+</b><span>보험 컨설팅<br>경력</span></div>
     </div>
   </div>
@@ -1008,6 +1065,10 @@ body{
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
   </a>
 </section>
+<script>
+  if(window.SITE_PROFILE_CACHED) applySiteProfile(SITE_PROFILE_CACHED);
+  setTimeout(() => window.useDefaultProfileImages && useDefaultProfileImages(), 6000);
+</script>
 <script>
   // 히어로가 화면에 보일 때만 빛줄기 애니메이션 실행 (스크롤로 벗어나면 정지 — 성능 최적화)
   (function(){
@@ -1626,7 +1687,7 @@ body{
   <div class="wrap">
     <div class="footer-top">
       <div class="footer-brand">
-        <img class="cert-logo" data-p-src="footerLogo" alt="로고" src="https://lh3.googleusercontent.com/d/1YcB2LJi0nq0shr_CX8fwqxQkDEPgs5e9" style="width:190px; height:auto;">
+        <img class="cert-logo" data-p-src="footerLogo" alt="로고" data-default-src="https://lh3.googleusercontent.com/d/1YcB2LJi0nq0shr_CX8fwqxQkDEPgs5e9" style="width:190px; height:auto;">
         <a href="#top" class="brand"><span class="mark"><img src="https://lh3.googleusercontent.com/d/1ljVKx6NFx5wCHiOZFvEgqRkpNWUrKXxP"></span><span class="b-text"><span class="b-name" data-p="name">심온</span><span class="b-tag">AZ금융서비스 <span data-p="title">고객관리 팀장</span></span></span></a>
         <p>AZ금융서비스 <span data-p="name">심온</span> <span data-p="title">고객관리 팀장</span>의 보험 컨설팅 소개 페이지입니다. 보험상품 안내는 요약 정보이며, 세부 보장내용은 약관 및 상품설명서를 통해 반드시 확인하시기 바랍니다.</p>
       </div>
@@ -1644,6 +1705,7 @@ body{
     </div>
   </div>
 </footer>
+<script>if(window.SITE_PROFILE_CACHED) applySiteProfile(SITE_PROFILE_CACHED);</script>
 
 <a href="tel:01030558109" data-p-tel id="floatingCallBtn" class="floating-call">
   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z"/></svg>
@@ -1973,7 +2035,7 @@ body{
   /* ---- 누적 상담 건수 카운터 ----
      실제 값은 관리자 "프로필 편집"에서 저장한 값(Firestore siteProfiles/main)을 사용함.
      프로필이 도착하기 전에는 기본값까지 천천히 올려두고, 도착하면 그 값으로 이어서 이동. */
-  const CONSULT_BASE_COUNT = 3036; // 프로필을 불러오기 전/실패 시 표시할 기본값
+  const CONSULT_BASE_COUNT = (window.SITE_PROFILE_CACHED && Number(window.SITE_PROFILE_CACHED.consultCount)) || 3036; // 마지막으로 본 값(없으면 기본값)부터 시작
 
   /*
     0부터 바로 카운트업을 시작하고, 실제 값(fetch 응답)이 도착하면
@@ -4402,40 +4464,21 @@ body{
     careerYears: 9,
     consultCount: 3036,
     autoIncrement: true,
-    photoURL: document.querySelector('[data-p-src="photo"]')?.getAttribute('src') || '',
+    photoURL: document.querySelector('[data-p-src="photo"]')?.dataset.defaultSrc || '',
     photoPath: null,
-    footerLogoURL: document.querySelector('[data-p-src="footerLogo"]')?.getAttribute('src') || '',
+    footerLogoURL: document.querySelector('[data-p-src="footerLogo"]')?.dataset.defaultSrc || '',
     footerLogoPath: null
   };
 
   let profile = { ...DEFAULT_PROFILE };
   let profileExists = false;
 
-  /* ---- 화면에 반영 ---- */
+  /* ---- 화면에 반영 (공통 함수는 <head>의 applySiteProfile) ---- */
   function applyProfile(p){
-    const set = (key, val) => document.querySelectorAll(`[data-p="${key}"]`).forEach(el => { el.textContent = val; });
-    set('name', p.name);
-    set('title', p.title);
-    set('phone', p.phone);
-    set('email', p.email || '');
-    set('career', p.careerYears);
-    document.querySelectorAll('[data-p-show="email"]').forEach(el => { el.style.display = p.email ? '' : 'none'; });
-
-    const tel = String(p.phone || '').replace(/[^0-9+]/g, '');
-    document.querySelectorAll('[data-p-tel]').forEach(a => a.setAttribute('href', 'tel:' + tel));
-
-    if(p.photoURL) document.querySelectorAll('[data-p-src="photo"]').forEach(img => img.src = p.photoURL);
-    if(p.footerLogoURL) document.querySelectorAll('[data-p-src="footerLogo"]').forEach(img => img.src = p.footerLogoURL);
-
-    // 경력 카운트업 숫자 (이미 애니메이션이 끝났으면 바로 숫자 교체)
-    const career = document.getElementById('statsCareer');
-    if(career){
-      career.dataset.countup = String(p.careerYears);
-      if(career.dataset.done) career.textContent = String(p.careerYears);
-    }
-
-    document.title = `AZ금융서비스 ${p.name} ${p.title} | 보험 컨설팅`;
+    window.applySiteProfile(p);
     if(window.setConsultCount) window.setConsultCount(Number(p.consultCount));
+    const { updatedAt, ...cacheable } = p;
+    window.saveSiteProfileCache(cacheable);
   }
 
   /* ---- 불러오기 + 방문자 하루 1회 자동 증가 ---- */
@@ -4446,6 +4489,12 @@ body{
       if(profileExists) profile = { ...DEFAULT_PROFILE, ...snap.data() };
     } catch(err){
       console.error('프로필 불러오기 실패', err);
+      // 불러오기 실패 시: 마지막으로 본 프로필이 있으면 그대로 유지
+      if(window.SITE_PROFILE_CACHED){
+        window.setConsultCount && window.setConsultCount(Number(window.SITE_PROFILE_CACHED.consultCount));
+        window.useDefaultProfileImages();
+        return;
+      }
     }
 
     if(profileExists && profile.autoIncrement){
