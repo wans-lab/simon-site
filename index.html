@@ -855,6 +855,24 @@ body{
   .profile-img-row{ display:flex; gap:14px; align-items:center; }
   .profile-img-row img{ width:72px; height:72px; object-fit:cover; border-radius:10px; border:1px solid var(--line); background:var(--bg-alt); flex-shrink:0; }
   .profile-img-row .form-drop{ flex:1; padding:16px 12px; }
+  .pf-section-title{ font-size:14px; font-weight:800; color:var(--blue-dark); margin:22px 0 12px; padding-top:18px; border-top:1px solid var(--line); }
+  .pf-section-title small{ font-weight:600; color:var(--muted-dim); font-size:11.5px; margin-left:6px; }
+  .form-row textarea{
+    width:100%; padding:11px 13px; border:1px solid var(--line); border-radius:10px; resize:vertical; min-height:72px;
+    font-size:13.5px; font-family:inherit; color:var(--ink); background:var(--bg-alt); line-height:1.6;
+  }
+  .form-row textarea:focus{ outline:none; border-color:var(--blue); background:#fff; }
+  .pf-card{ border:1px solid var(--line); border-radius:12px; padding:14px 14px 2px; margin-bottom:12px; background:#fff; }
+  .pf-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; font-size:12.5px; font-weight:800; color:var(--ink); }
+  .pf-card-tools{ display:flex; gap:6px; }
+  .pf-card-tools button{ border:1px solid var(--line); background:var(--bg-alt); border-radius:8px; padding:4px 9px; font-size:12px; cursor:pointer; color:var(--muted); font-family:inherit; }
+  .pf-card-tools button:hover{ border-color:var(--blue); color:var(--blue); }
+  .pf-card-tools button.danger:hover{ border-color:#d33; color:#d33; }
+  .pf-link-grid{ display:grid; grid-template-columns:70px 1fr; gap:0 10px; }
+  .pf-toggle-row{ display:flex; flex-direction:column; gap:10px; margin-bottom:6px; }
+  .pf-toggle-row .form-check{ margin:0; }
+  .pf-add-btn{ width:100%; border:1.5px dashed var(--line); background:var(--bg-alt); border-radius:12px; padding:12px; font-weight:700; color:var(--muted); cursor:pointer; font-family:inherit; font-size:13px; }
+  .pf-add-btn:hover{ border-color:var(--blue); color:var(--blue); }
   .form-hint{ font-size:11.5px; color:var(--muted-dim); margin-top:6px; }
   @media (max-width:520px){ .profile-form-grid{ grid-template-columns:1fr; } }
   .footer-bottom{ display:flex; justify-content:space-between; align-items:center; padding-top:24px; flex-wrap:wrap; gap:10px; }
@@ -957,8 +975,81 @@ body{
       if(img.complete && img.naturalWidth) img.classList.add('loaded');
     }
 
+    /* 관리자에서 아직 저장하기 전 기본값 */
+    window.SITE_DEFAULTS = {
+      showIssues: true,
+      showKnowledge: true,
+      services: [
+        { label: '01 · DIAGNOSIS', title: '보장 진단', desc: '현재 가입되어 있는 보장을 먼저 함께 확인합니다. 중복되거나 불필요한 보장은 걷어내고, 비어있는 부분을 짚어드립니다.' },
+        { label: '02 · DESIGN',    title: '비교 설계', desc: '여러 보험사 상품을 비교해 고객님 상황에 맞는 합리적인 조합을 제안드립니다. 팩트에 기반해 설명드리는 것을 원칙으로 합니다.' },
+        { label: '03 · CARE',      title: '사후 관리', desc: '가입 이후에도 보험금 청구, 서류 준비, 보장 변경까지 필요한 순간마다 끝까지 함께합니다.' }
+      ],
+      links: [
+        { icon: '🩺', title: '실손체크', url: 'https://silsoncheck.com/', desc: '도수치료·MRI·백내장 등 주요 치료가 내 실손보험 세대에서 보장되는지 1분 안에 확인할 수 있는 정보 사이트예요.' }
+      ]
+    };
+
+    function safeUrl(u){
+      u = String(u || '').trim();
+      if(!u) return '#';
+      if(!/^https?:\/\//i.test(u)) u = 'https://' + u;
+      try{ const x = new URL(u); return (x.protocol === 'http:' || x.protocol === 'https:') ? x.href : '#'; } catch(e){ return '#'; }
+    }
+    window.siteSafeUrl = safeUrl;
+
+    /* 섹션 숨김: CSS로 처리(문서 어디서든 즉시 적용) + 아래로 가기 버튼이 숨겨진 섹션을 건너뛰도록 */
+    function applyVisibility(hidden){
+      let st = document.getElementById('siteVisibilityStyle');
+      if(!st){ st = document.createElement('style'); st.id = 'siteVisibilityStyle'; document.head.appendChild(st); }
+      st.textContent = hidden.map(id => `#${id}, a[href="#${id}"]:not(.section-scroll-btn){ display:none !important; }`).join('\n');
+      const order = Array.from(document.querySelectorAll('section[id]')).map(s => s.id);
+      document.querySelectorAll('.section-scroll-btn').forEach(btn => {
+        if(!btn.dataset.origHref) btn.dataset.origHref = btn.getAttribute('href');
+        let id = btn.dataset.origHref.slice(1);
+        let i = order.indexOf(id);
+        while(i >= 0 && hidden.includes(order[i])) i++;
+        if(i >= 0 && order[i]) btn.setAttribute('href', '#' + order[i]);
+      });
+    }
+
+    function renderServices(list){
+      if(!Array.isArray(list)) return;
+      document.querySelectorAll('#service .service-cell').forEach((cell, i) => {
+        const s = list[i]; if(!s) return;
+        const n = cell.querySelector('.n'), t = cell.querySelector('h3'), d = cell.querySelector('p');
+        if(n) n.textContent = s.label || '';
+        if(t) t.textContent = s.title || '';
+        if(d) d.textContent = s.desc || '';
+      });
+    }
+
+    function renderLinks(list){
+      const grid = document.getElementById('reflinkGrid');
+      if(!grid || !Array.isArray(list)) return;
+      grid.innerHTML = '';
+      list.forEach(l => {
+        const a = document.createElement('a');
+        a.className = 'reflink-card'; a.href = safeUrl(l.url); a.target = '_blank'; a.rel = 'noopener';
+        const icon = document.createElement('div'); icon.className = 'reflink-icon'; icon.textContent = l.icon || '🔗';
+        const body = document.createElement('div'); body.className = 'reflink-body';
+        const name = document.createElement('div'); name.className = 'reflink-name'; name.textContent = l.title || '';
+        const desc = document.createElement('div'); desc.className = 'reflink-desc'; desc.textContent = l.desc || '';
+        body.append(name, desc);
+        const arrow = document.createElement('div'); arrow.className = 'reflink-arrow'; arrow.textContent = '→';
+        a.append(icon, body, arrow);
+        grid.appendChild(a);
+      });
+    }
+
     window.applySiteProfile = function(p){
       if(!p) return;
+      const hidden = [];
+      if(p.showIssues === false) hidden.push('issues');
+      if(p.showKnowledge === false) hidden.push('knowledge');
+      if(Array.isArray(p.links) && p.links.length === 0) hidden.push('reference');
+      applyVisibility(hidden);
+      renderServices(p.services);
+      renderLinks(p.links);
       const set = (key, val) => { if(val === undefined || val === null) return; document.querySelectorAll(`[data-p="${key}"]`).forEach(el => { el.textContent = val; }); };
       set('name', p.name);
       set('title', p.title);
@@ -981,6 +1072,8 @@ body{
     };
 
     // 서버 응답이 너무 늦거나 실패할 때만 기본 이미지 사용
+    if(cached) window.applySiteProfile(cached);
+
     window.useDefaultProfileImages = function(){
       document.querySelectorAll('img[data-p-src]').forEach(img => {
         if(!img.getAttribute('src') && img.dataset.defaultSrc) setImg(img, img.dataset.defaultSrc);
@@ -1282,6 +1375,7 @@ body{
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
   </a>
 </section>
+<script>if(window.SITE_PROFILE_CACHED) applySiteProfile(SITE_PROFILE_CACHED);</script>
 
 <!-- ISSUES (이달의 상품 이슈) -->
 <section class="band band-alt" id="issues">
@@ -1645,7 +1739,7 @@ body{
       <p>보험을 준비하실 때 참고하시면 도움이 될 만한 외부 정보 사이트를 소개합니다.</p>
     </div>
 
-    <div class="reflink-grid reveal-group">
+    <div class="reflink-grid reveal-group" id="reflinkGrid">
       <a href="https://silsoncheck.com/" target="_blank" rel="noopener" class="reflink-card">
         <div class="reflink-icon">🩺</div>
         <div class="reflink-body">
@@ -1660,6 +1754,7 @@ body{
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
   </a>
 </section>
+<script>if(window.SITE_PROFILE_CACHED) applySiteProfile(SITE_PROFILE_CACHED);</script>
 
 <!-- MARQUEE GALLERY -->
 <section class="marquee-section" id="gallery">
@@ -4438,6 +4533,19 @@ body{
             </label>
           </div>
         </div>
+        <div class="pf-section-title">섹션 표시</div>
+        <div class="pf-toggle-row">
+          <label class="form-check"><input type="checkbox" id="pfShowIssues"> "이달의 상품 이슈" 섹션 보이기</label>
+          <label class="form-check"><input type="checkbox" id="pfShowKnowledge"> "보험 기초 상식" 섹션 보이기</label>
+        </div>
+
+        <div class="pf-section-title">보험이 쉬워지는 상담 <small>카드 3개</small></div>
+        <div id="pfServices"></div>
+
+        <div class="pf-section-title">알아두면 유용한 사이트 <small>하나도 없으면 섹션이 숨겨져요</small></div>
+        <div id="pfLinks"></div>
+        <button type="button" class="pf-add-btn" id="pfAddLinkBtn">+ 사이트 추가</button>
+
         <p class="form-hint">저장하면 방문자 화면에 바로 반영됩니다. (카카오톡 등 링크 미리보기 이미지·제목은 HTML에 고정된 값이라 별도 수정이 필요해요)</p>
         <div class="form-progress" id="pfProgress"><div class="bar" id="pfProgressBar"></div></div>
         <div style="display:flex; gap:10px; margin-top:10px;">
@@ -4478,7 +4586,11 @@ body{
     photoURL: document.querySelector('[data-p-src="photo"]')?.dataset.defaultSrc || '',
     photoPath: null,
     footerLogoURL: document.querySelector('[data-p-src="footerLogo"]')?.dataset.defaultSrc || '',
-    footerLogoPath: null
+    footerLogoPath: null,
+    showIssues: window.SITE_DEFAULTS.showIssues,
+    showKnowledge: window.SITE_DEFAULTS.showKnowledge,
+    services: window.SITE_DEFAULTS.services.map(s => ({ ...s })),
+    links: window.SITE_DEFAULTS.links.map(l => ({ ...l }))
   };
 
   let profile = { ...DEFAULT_PROFILE };
@@ -4575,6 +4687,11 @@ body{
     f.career.value = profile.careerYears ?? '';
     f.consult.value = profile.consultCount ?? '';
     f.auto.checked = !!profile.autoIncrement;
+    document.getElementById('pfShowIssues').checked = profile.showIssues !== false;
+    document.getElementById('pfShowKnowledge').checked = profile.showKnowledge !== false;
+    renderServiceEditors(Array.isArray(profile.services) ? profile.services : window.SITE_DEFAULTS.services);
+    draftLinks = (Array.isArray(profile.links) ? profile.links : window.SITE_DEFAULTS.links).map(l => ({ ...l }));
+    renderLinkEditors();
     photoFile = null; logoFile = null;
     setPreview('photo', null); setPreview('logo', null);
     msg.textContent = ''; msg.className = 'form-msg';
@@ -4609,6 +4726,87 @@ body{
   });
   document.getElementById('pfLogoutBtn').addEventListener('click', async () => { await signOut(auth); closeEdit(); });
   onAuthStateChanged(auth, () => {}); // 로그인 상태 유지 확인용
+
+  /* ---- 상담 카드 / 유용한 사이트 편집 ---- */
+  const servicesBox = document.getElementById('pfServices');
+  const linksBox = document.getElementById('pfLinks');
+  let draftLinks = [];
+
+  function el(tag, attrs = {}, children = []){
+    const e = document.createElement(tag);
+    Object.entries(attrs).forEach(([k, v]) => {
+      if(k === 'text') e.textContent = v;
+      else if(k.startsWith('on')) e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v);
+    });
+    children.forEach(c => e.appendChild(c));
+    return e;
+  }
+  function field(labelText, input){
+    return el('div', { class: 'form-row' }, [el('label', { text: labelText }), input]);
+  }
+
+  function renderServiceEditors(list){
+    servicesBox.innerHTML = '';
+    for(let i = 0; i < 3; i++){
+      const s = list[i] || { label: '', title: '', desc: '' };
+      const label = el('input', { type: 'text', 'data-k': 'label', maxlength: '40' }); label.value = s.label || '';
+      const title = el('input', { type: 'text', 'data-k': 'title', maxlength: '40', required: '' }); title.value = s.title || '';
+      const desc = el('textarea', { 'data-k': 'desc', rows: '3', maxlength: '300' }); desc.value = s.desc || '';
+      servicesBox.appendChild(el('div', { class: 'pf-card', 'data-i': String(i) }, [
+        el('div', { class: 'pf-card-head' }, [el('span', { text: `카드 ${i + 1}` })]),
+        field('작은 제목 (예: 01 · DIAGNOSIS)', label),
+        field('제목', title),
+        field('내용', desc)
+      ]));
+    }
+  }
+  function readServiceEditors(){
+    return Array.from(servicesBox.querySelectorAll('.pf-card')).map(card => ({
+      label: card.querySelector('[data-k="label"]').value.trim(),
+      title: card.querySelector('[data-k="title"]').value.trim(),
+      desc: card.querySelector('[data-k="desc"]').value.trim()
+    }));
+  }
+
+  function syncLinksFromDom(){
+    draftLinks = Array.from(linksBox.querySelectorAll('.pf-card')).map(card => ({
+      icon: card.querySelector('[data-k="icon"]').value.trim(),
+      title: card.querySelector('[data-k="title"]').value.trim(),
+      url: card.querySelector('[data-k="url"]').value.trim(),
+      desc: card.querySelector('[data-k="desc"]').value.trim()
+    }));
+  }
+  function renderLinkEditors(){
+    linksBox.innerHTML = '';
+    draftLinks.forEach((l, i) => {
+      const icon = el('input', { type: 'text', 'data-k': 'icon', maxlength: '4', placeholder: '🔗' }); icon.value = l.icon || '';
+      const title = el('input', { type: 'text', 'data-k': 'title', maxlength: '40', required: '' }); title.value = l.title || '';
+      const url = el('input', { type: 'text', 'data-k': 'url', placeholder: 'https://', required: '' }); url.value = l.url || '';
+      const desc = el('textarea', { 'data-k': 'desc', rows: '2', maxlength: '200' }); desc.value = l.desc || '';
+      const move = (d) => { syncLinksFromDom(); const j = i + d; if(j < 0 || j >= draftLinks.length) return; [draftLinks[i], draftLinks[j]] = [draftLinks[j], draftLinks[i]]; renderLinkEditors(); };
+      linksBox.appendChild(el('div', { class: 'pf-card' }, [
+        el('div', { class: 'pf-card-head' }, [
+          el('span', { text: `사이트 ${i + 1}` }),
+          el('div', { class: 'pf-card-tools' }, [
+            el('button', { type: 'button', text: '▲', title: '위로', onclick: () => move(-1) }),
+            el('button', { type: 'button', text: '▼', title: '아래로', onclick: () => move(1) }),
+            el('button', { type: 'button', class: 'danger', text: '삭제', onclick: () => { syncLinksFromDom(); draftLinks.splice(i, 1); renderLinkEditors(); } })
+          ])
+        ]),
+        el('div', { class: 'pf-link-grid' }, [ field('아이콘', icon), field('사이트 이름', title) ]),
+        field('링크 주소', url),
+        field('설명', desc)
+      ]));
+    });
+  }
+  document.getElementById('pfAddLinkBtn').addEventListener('click', () => {
+    syncLinksFromDom();
+    draftLinks.push({ icon: '🔗', title: '', url: '', desc: '' });
+    renderLinkEditors();
+    const last = linksBox.lastElementChild;
+    if(last){ last.scrollIntoView({ behavior: 'smooth', block: 'center' }); last.querySelector('[data-k="title"]').focus(); }
+  });
 
   /* ---- 이미지 선택 / 미리보기 ---- */
   function setPreview(kind, file){
@@ -4699,7 +4897,13 @@ body{
         email: f.email.value.trim(),
         careerYears: career,
         consultCount: consult,
-        autoIncrement: f.auto.checked
+        autoIncrement: f.auto.checked,
+        showIssues: document.getElementById('pfShowIssues').checked,
+        showKnowledge: document.getElementById('pfShowKnowledge').checked,
+        services: readServiceEditors(),
+        links: (syncLinksFromDom(), draftLinks)
+          .filter(l => l.title || l.url)
+          .map(l => ({ icon: l.icon || '🔗', title: l.title, url: window.siteSafeUrl(l.url), desc: l.desc }))
       };
       if(photoFile){
         photoFile = await resizeImage(photoFile, 1400);
